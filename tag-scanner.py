@@ -1,13 +1,16 @@
 import boto3
+import pandas as pd
 from botocore.exceptions import ClientError
 
 # Initialize Boto3 client for resourcegroupstaggingapi
 tagging_client = boto3.client('resourcegroupstaggingapi', region_name='us-east-1')
 
-# Function to scan resources and print those missing one or both tags
-def scan_resources_missing_tags(required_tags=None):
+# Function to scan resources and save missing tags to an Excel file
+def scan_resources_missing_tags(required_tags=None, output_file="missing_tags.xlsx"):
     if required_tags is None:
         required_tags = ["AppName", "AppCode"]  # Default required tags
+
+    missing_tag_data = []  # Store results here
 
     try:
         # Paginate through resources
@@ -19,16 +22,24 @@ def scan_resources_missing_tags(required_tags=None):
                 # Extract tags as a dictionary
                 tags = {tag['Key']: tag['Value'] for tag in resource.get('Tags', [])}
                 
-                # Check if any required tag is missing
+                # Check which required tags are missing
                 missing_tags = [tag for tag in required_tags if tag not in tags]
                 
                 if missing_tags:
-                    print(f"Resource {resource_arn} is missing tags: {', '.join(missing_tags)}")
+                    missing_tag_data.append({"Resource ARN": resource_arn, "Missing Tags": ", ".join(missing_tags)})
                     
+        # Convert results to a DataFrame and save to Excel
+        if missing_tag_data:
+            df = pd.DataFrame(missing_tag_data)
+            df.to_excel(output_file, index=False)
+            print(f"Results saved to {output_file}")
+        else:
+            print("All resources have the required tags.")
+
     except ClientError as e:
         print(f"Error scanning resources: {e}")
 
 # Execute the function
 if __name__ == '__main__':
-    scan_resources_missing_tags(["AppName", "AppCode"])  # Specify required tags
+    scan_resources_missing_tags(["AppName", "AppCode"], "missing_tags.xlsx")  # Specify required tags & output file
 
