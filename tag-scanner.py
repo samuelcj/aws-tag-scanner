@@ -2,14 +2,15 @@ import boto3
 from botocore.exceptions import ClientError
 
 # Initialize Boto3 client for resourcegroupstaggingapi
-tagging_client = boto3.client('resourcegroupstaggingapi')
+tagging_client = boto3.client('resourcegroupstaggingapi', region_name='us-east-1')  # Change region as needed
 
 # Function to check if the resource has the "AppName" tag
 def check_resource_tags(resource_arn, tag_key="AppName"):
     try:
         # Get tags for a specific resource ARN
-        response = tagging_client.get_tags(ResourceARNList=[resource_arn])
-        
+        #response = tagging_client.get_tags(ResourceARNList=[resource_arn])
+        response = tagging_client.get_resources(ResourceTypeFilters=[], TagFilters=[{"Key": tag_key}])
+
         for resource in response['ResourceTagMappingList']:
             for tag in resource['Tags']:
                 if tag_key in tag:
@@ -33,5 +34,5 @@ def scan_resources_for_tags(tag_key="AppName"):
 
 # Execute the function to scan resources
 if __name__ == '__main__':
-    scan_resources_for_tags("SnowAppName")  # You can specify another tag key if needed
+    scan_resources_for_tags("SnowAppName") 
 
