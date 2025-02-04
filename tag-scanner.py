@@ -4,34 +4,31 @@ from botocore.exceptions import ClientError
 # Initialize Boto3 client for resourcegroupstaggingapi
 tagging_client = boto3.client('resourcegroupstaggingapi', region_name='us-east-1')
 
-# Function to check if the resource has the "AppName" tag
-def check_resource_tags_without_AppName(resource_arn, tag_key="AppName"):
-    try:
-        # Get tags for a specific resource ARN
-        response = tagging_client.get_resources(ResourceTypeFilters=[], TagFilters=[{"Key": tag_key}])
-        
-        for resource in response['ResourceTagMappingList']:
-            for tag in resource['Tags']:
-                if tag_key in tag:
-                    return False  # Tag found, return False (do not print)
-        return True  # Tag not found, return True (should print)
-    except ClientError as e:
-        print(f"Error getting tags for {resource_arn}: {e}")
-        return True  # In case of error, assume the resource has no "AppName" tag
+# Function to scan resources and print those missing one or both tags
+def scan_resources_missing_tags(required_tags=None):
+    if required_tags is None:
+        required_tags = ["AppName", "AppCode"]  # Default required tags
 
-# Function to scan resources and print those without the "AppName" tag
-def scan_resources_without_AppName(tag_key="AppName"):
     try:
         # Paginate through resources
         paginator = tagging_client.get_paginator('get_resources')
         for page in paginator.paginate():
             for resource in page['ResourceTagMappingList']:
                 resource_arn = resource['ResourceARN']
-                if check_resource_tags_without_AppName(resource_arn, tag_key):
-                    print(f"Resource {resource_arn} does not have the '{tag_key}' tag.")
+                
+                # Extract tags as a dictionary
+                tags = {tag['Key']: tag['Value'] for tag in resource.get('Tags', [])}
+                
+                # Check if any required tag is missing
+                missing_tags = [tag for tag in required_tags if tag not in tags]
+                
+                if missing_tags:
+                    print(f"Resource {resource_arn} is missing tags: {', '.join(missing_tags)}")
+                    
     except ClientError as e:
         print(f"Error scanning resources: {e}")
 
-# Execute the function to scan resources
+# Execute the function
 if __name__ == '__main__':
-    scan_resources_without_AppName("AppName") 
+    scan_resources_missing_tags(["AppName", "AppCode"])  # Specify required tags
+
