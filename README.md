@@ -43,7 +43,7 @@ cd aws-tag-scanner
 
 ### 2. Install Dependencies
 ```sh
-pip install -r requirements.txt  # If you add a requirements.txt file
+pip install boto3 pandas openpyxl     # You can include the version you want.
 ```
 
 ### 3. Run the Script
