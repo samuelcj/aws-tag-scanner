@@ -3,7 +3,7 @@
 ## Overview
 This script scans AWS resources across your account and identifies:
 - Resources that are **missing all tags**
-- Resources that **lack either or both** of the required tags (`SnowAppName`, `SnowAppCode`)
+- Resources that **lack either or both** of the required tags (`AppName`, `AppCode`)
 - Outputs the results in an Excel file (`missing_tags_scanner.xlsx`)
 
 ## Features
