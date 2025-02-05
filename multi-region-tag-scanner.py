@@ -21,7 +21,7 @@ sts_client = boto3.client("sts")
 account_id = sts_client.get_caller_identity()["Account"]
 
 # Required tags to check (configurable)
-REQUIRED_TAGS = ["AppName", "AppCode"]
+REQUIRED_TAGS = ["SnowAppName", "SnowAppCode"]
 
 # Function to scan resources without any tags OR missing required tags across multiple regions
 def scan_resources_missing_tags(output_file_prefix="multi_region_missing_tags_scanner"):
@@ -31,9 +31,35 @@ def scan_resources_missing_tags(output_file_prefix="multi_region_missing_tags_sc
     regions = get_all_regions()  # Fetch all AWS regions
 
     try:
+        # 📌 Scan S3 Buckets (Global Resource - Scan Only Once)
+        s3_client = boto3.client("s3")  # S3 is global, so no region is needed
+        s3_buckets = s3_client.list_buckets()["Buckets"]
+        for bucket in s3_buckets:
+            bucket_name = bucket["Name"]
+            bucket_arn = f"arn:aws:s3:::{bucket_name}"
+
+            if bucket_arn not in existing_resources:
+                tags = None
+                try:
+                    tags = {tag["Key"]: tag["Value"] for tag in s3_client.get_bucket_tagging(Bucket=bucket_name)["TagSet"]}
+                except ClientError as e:
+                    if e.response["Error"]["Code"] == "NoSuchTagSet":
+                        tags = {}
+
+                missing_tags = [tag for tag in REQUIRED_TAGS if tag not in tags]
+
+                if not tags or missing_tags:
+                    missing_tag_data.append({
+                        "Resource ARN": bucket_arn,
+                        "Missing Tags": ", ".join(missing_tags) if missing_tags else "No Tags",
+                        "Region": "Global (S3)"  # S3 buckets are global, so no specific region
+                    })
+                    existing_resources.add(bucket_arn)
+
+        # 📌 Scan Other Resources (EC2, Tagging API) in Each Region
         for region in regions:
             print(f"Scanning region: {region}")
-            tagging_client, ec2_client, s3_client = get_clients(region)
+            tagging_client, ec2_client, _ = get_clients(region)  # S3 client is not needed here
 
             # 📌 1. Scan resources using Resource Groups Tagging API
             paginator = tagging_client.get_paginator("get_resources")
@@ -70,29 +96,6 @@ def scan_resources_missing_tags(output_file_prefix="multi_region_missing_tags_sc
                                 "Missing Tags": ", ".join(missing_tags) if missing_tags else "No Tags",
                                 "Region": region
                             })
-
-            # 📌 3. Scan S3 Buckets (Ensure Full ARN)
-            s3_buckets = s3_client.list_buckets()["Buckets"]
-            for bucket in s3_buckets:
-                bucket_name = bucket["Name"]
-                bucket_arn = f"arn:aws:s3:::{bucket_name}"
-
-                if bucket_arn not in existing_resources:
-                    tags = None
-                    try:
-                        tags = {tag["Key"]: tag["Value"] for tag in s3_client.get_bucket_tagging(Bucket=bucket_name)["TagSet"]}
-                    except ClientError as e:
-                        if e.response["Error"]["Code"] == "NoSuchTagSet":
-                            tags = {}
-
-                    missing_tags = [tag for tag in REQUIRED_TAGS if tag not in tags]
-
-                    if not tags or missing_tags:
-                        missing_tag_data.append({
-                            "Resource ARN": bucket_arn,
-                            "Missing Tags": ", ".join(missing_tags) if missing_tags else "No Tags",
-                            "Region": region
-                        })
 
         # Save results to Excel with a timestamp
         if missing_tag_data:
