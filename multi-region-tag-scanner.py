@@ -45,15 +45,21 @@ def scan_resources_missing_tags(output_file_prefix="multi_region_missing_tags_sc
                     if e.response["Error"]["Code"] == "NoSuchTagSet":
                         tags = {}
 
-                missing_tags = [tag for tag in REQUIRED_TAGS if tag not in tags]
-
-                if not tags or missing_tags:
+                if not tags:  # No tags at all
                     missing_tag_data.append({
                         "Resource ARN": bucket_arn,
-                        "Missing Tags": ", ".join(missing_tags) if missing_tags else "No Tags",
-                        "Region": "Global (S3)"  # S3 buckets are global, so no specific region
+                        "Missing Tags": "No Tags",
+                        "Region": "Global (S3)"
                     })
-                    existing_resources.add(bucket_arn)
+                else:
+                    missing_tags = [tag for tag in REQUIRED_TAGS if tag not in tags]
+                    if missing_tags:  # Missing required tags
+                        missing_tag_data.append({
+                            "Resource ARN": bucket_arn,
+                            "Missing Tags": ", ".join(missing_tags),
+                            "Region": "Global (S3)"
+                        })
+                existing_resources.add(bucket_arn)
 
         # 📌 Scan Other Resources (EC2, Tagging API) in Each Region
         for region in regions:
@@ -72,15 +78,21 @@ def scan_resources_missing_tags(output_file_prefix="multi_region_missing_tags_sc
 
                     tags = {tag["Key"]: tag["Value"] for tag in resource.get("Tags", [])}
 
-                    missing_tags = [tag for tag in REQUIRED_TAGS if tag not in tags]
-
-                    if not tags or missing_tags:  # No tags OR missing required tags
+                    if not tags:  # No tags at all
                         missing_tag_data.append({
                             "Resource ARN": resource_arn,
-                            "Missing Tags": ", ".join(missing_tags) if missing_tags else "No Tags",
+                            "Missing Tags": "No Tags",
                             "Region": region
                         })
-                        existing_resources.add(resource_arn)
+                    else:
+                        missing_tags = [tag for tag in REQUIRED_TAGS if tag not in tags]
+                        if missing_tags:  # Missing required tags
+                            missing_tag_data.append({
+                                "Resource ARN": resource_arn,
+                                "Missing Tags": ", ".join(missing_tags),
+                                "Region": region
+                            })
+                    existing_resources.add(resource_arn)
 
             # 📌 2. Scan EC2 Instances (Ensure Full ARN)
             ec2_instances = ec2_client.describe_instances()["Reservations"]
@@ -92,14 +104,21 @@ def scan_resources_missing_tags(output_file_prefix="multi_region_missing_tags_sc
                     if instance_arn not in existing_resources:
                         tags = {tag["Key"]: tag["Value"] for tag in instance.get("Tags", [])} if "Tags" in instance else {}
 
-                        missing_tags = [tag for tag in REQUIRED_TAGS if tag not in tags]
-
-                        if not tags or missing_tags:
+                        if not tags:  # No tags at all
                             missing_tag_data.append({
                                 "Resource ARN": instance_arn,
-                                "Missing Tags": ", ".join(missing_tags) if missing_tags else "No Tags",
+                                "Missing Tags": "No Tags",
                                 "Region": region
                             })
+                        else:
+                            missing_tags = [tag for tag in REQUIRED_TAGS if tag not in tags]
+                            if missing_tags:  # Missing required tags
+                                missing_tag_data.append({
+                                    "Resource ARN": instance_arn,
+                                    "Missing Tags": ", ".join(missing_tags),
+                                    "Region": region
+                                })
+                        existing_resources.add(instance_arn)
 
         # Save results to Excel with a timestamp
         if missing_tag_data:
