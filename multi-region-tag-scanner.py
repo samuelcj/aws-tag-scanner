@@ -13,8 +13,7 @@ def get_all_regions():
 def get_clients(region):
     tagging_client = boto3.client("resourcegroupstaggingapi", region_name=region)
     ec2_client = boto3.client("ec2", region_name=region)
-    s3_client = boto3.client("s3", region_name=region)
-    return tagging_client, ec2_client, s3_client
+    return tagging_client, ec2_client  # No need for S3 client in region loop
 
 # Get AWS Account ID (Needed for EC2 ARNs)
 sts_client = boto3.client("sts")
@@ -59,13 +58,18 @@ def scan_resources_missing_tags(output_file_prefix="multi_region_missing_tags_sc
         # 📌 Scan Other Resources (EC2, Tagging API) in Each Region
         for region in regions:
             print(f"Scanning region: {region}")
-            tagging_client, ec2_client, _ = get_clients(region)  # S3 client is not needed here
+            tagging_client, ec2_client = get_clients(region)
 
-            # 📌 1. Scan resources using Resource Groups Tagging API
+            # 📌 1. Scan resources using Resource Groups Tagging API (Exclude S3 Buckets)
             paginator = tagging_client.get_paginator("get_resources")
             for page in paginator.paginate():
                 for resource in page["ResourceTagMappingList"]:
                     resource_arn = resource["ResourceARN"]
+
+                    # Skip S3 buckets (already scanned globally)
+                    if ":s3:::" in resource_arn:
+                        continue
+
                     tags = {tag["Key"]: tag["Value"] for tag in resource.get("Tags", [])}
 
                     missing_tags = [tag for tag in REQUIRED_TAGS if tag not in tags]
