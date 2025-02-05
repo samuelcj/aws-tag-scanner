@@ -21,7 +21,7 @@ sts_client = boto3.client("sts")
 account_id = sts_client.get_caller_identity()["Account"]
 
 # Required tags to check (configurable)
-REQUIRED_TAGS = ["SnowAppName", "SnowAppCode"]
+REQUIRED_TAGS = ["AppName", "AppCode"]
 
 # Function to scan resources without any tags OR missing required tags across multiple regions
 def scan_resources_missing_tags(output_file_prefix="multi_region_missing_tags_scanner"):
