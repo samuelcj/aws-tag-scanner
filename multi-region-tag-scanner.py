@@ -1,6 +1,7 @@
 import boto3
 import pandas as pd
 from botocore.exceptions import ClientError
+from datetime import datetime
 
 # Get list of all regions
 def get_all_regions():
@@ -19,11 +20,11 @@ def get_clients(region):
 sts_client = boto3.client("sts")
 account_id = sts_client.get_caller_identity()["Account"]
 
-# Required tags to check
+# Required tags to check (configurable)
 REQUIRED_TAGS = ["AppName", "AppCode"]
 
 # Function to scan resources without any tags OR missing required tags across multiple regions
-def scan_resources_missing_tags(output_file="multi_region_tags_scanner.xlsx"):
+def scan_resources_missing_tags(output_file_prefix="multi_region_missing_tags_scanner"):
     missing_tag_data = []
     existing_resources = set()  # Track resources to prevent duplicates
 
@@ -93,8 +94,10 @@ def scan_resources_missing_tags(output_file="multi_region_tags_scanner.xlsx"):
                             "Region": region
                         })
 
-        # Save results to Excel
+        # Save results to Excel with a timestamp
         if missing_tag_data:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_file = f"{output_file_prefix}_{timestamp}.xlsx"
             df = pd.DataFrame(missing_tag_data)
             df.to_excel(output_file, index=False)
             print(f"Resources without tags or missing required tags saved to {output_file}")
@@ -106,5 +109,4 @@ def scan_resources_missing_tags(output_file="multi_region_tags_scanner.xlsx"):
 
 # Run the function
 if __name__ == "__main__":
-    scan_resources_missing_tags("multi_region_missing_tags_scanner.xlsx")
-
+    scan_resources_missing_tags()
