@@ -35,10 +35,10 @@ The script requires the following AWS permissions:
 ```
 
 ## Setup & Usage
-### 1. Clone the Repository
+### 1. Clone this Repository
 ```sh
-git clone <your-repo-url>
-cd <your-repo-folder>
+git clone https://github.com/samuelcj/aws-tag-scanner.git
+cd aws-tag-scanner
 ```
 
 ### 2. Install Dependencies
@@ -48,7 +48,7 @@ pip install -r requirements.txt  # If you add a requirements.txt file
 
 ### 3. Run the Script
 ```sh
-python scan_missing_tags.py
+python aws_missing_tags.py
 ```
 
 ### 4. Output
